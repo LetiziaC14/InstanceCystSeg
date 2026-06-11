@@ -16,5 +16,72 @@ Maintainers
     - Adriana V. Gregory
     - Timothy L. Kline
     - Andrew J. Vercnocke
+
+Inference
+---------
+
+The modern inference entry point accepts a 3-D MRI NIfTI volume and a binary
+kidney-mask NIfTI volume on the same voxel grid:
+
+```powershell
+.\instancecyst\Scripts\python.exe .\src\inference.py `
+  --image ".\data\10001 COR T2 HASTE.nii.gz" `
+  --kidney-mask .\data\pred_vol.nii `
+  --checkpoint .\model_weights\instanceCystSeg_modelWeights_3ch_t001.hdf5 `
+  --output .\data\10001_CystInstSeg.nii.gz `
+  --semantic-output .\data\10001_CystSemanticSeg.nii.gz `
+  --batch-size 1
+```
+
+The included repository has one model checkpoint. The original publication
+script used three separately trained checkpoints and majority voting, so the
+single-model result may differ from the reported ensemble performance.
+
+For an axial acquisition, add `--acquisition-plane axial`. The script first
+resamples the volume to an isotropic coronal grid, runs inference, and maps the
+labels back to the original axial grid:
+
+```powershell
+.\instancecyst\Scripts\python.exe .\src\inference.py `
+  --image ".\data_ax\8001 AX T2 HASTE.nii.gz" `
+  --kidney-mask .\data_ax\pred_vol.nii `
+  --checkpoint .\model_weights\instanceCystSeg_modelWeights_3ch_t001.hdf5 `
+  --output .\data_ax\8001_CystInstSeg.nii.gz `
+  --semantic-output .\data_ax\8001_CystSemanticSeg.nii.gz `
+  --acquisition-plane axial `
+  --batch-size 1
+```
+
+The supplied checkpoint was trained on coronal acquisitions. Axial inference
+is therefore a reformatted, out-of-domain application and requires visual
+quality control; geometric reformatting does not guarantee the performance
+reported for native coronal data.
+
+Sagittal acquisitions use the same world-space reformatting with
+`--acquisition-plane sagittal`. Run the right and left acquisitions separately
+because they have different fields of view and output grids:
+
+```powershell
+.\instancecyst\Scripts\python.exe .\src\inference.py `
+  --image ".\data_sag\11001 SAG T2 HASTE DERECHO.nii.gz" `
+  --kidney-mask .\data_sag\pred_vol_derecho.nii `
+  --checkpoint .\model_weights\instanceCystSeg_modelWeights_3ch_t001.hdf5 `
+  --output .\data_sag\11001_DERECHO_CystInstSeg.nii.gz `
+  --semantic-output .\data_sag\11001_DERECHO_CystSemanticSeg.nii.gz `
+  --acquisition-plane sagittal `
+  --batch-size 1
+
+.\instancecyst\Scripts\python.exe .\src\inference.py `
+  --image ".\data_sag\12001 SAG T2 HASTE IZQUIERDO.nii.gz" `
+  --kidney-mask .\data_sag\pred_vol_izquierdo.nii `
+  --checkpoint .\model_weights\instanceCystSeg_modelWeights_3ch_t001.hdf5 `
+  --output .\data_sag\12001_IZQUIERDO_CystInstSeg.nii.gz `
+  --semantic-output .\data_sag\12001_IZQUIERDO_CystSemanticSeg.nii.gz `
+  --acquisition-plane sagittal `
+  --batch-size 1
+```
+
+As with axial data, sagittal inference is out of domain for this coronal
+checkpoint and requires visual quality control.
     
 
