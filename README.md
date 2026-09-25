@@ -83,5 +83,85 @@ because they have different fields of view and output grids:
 
 As with axial data, sagittal inference is out of domain for this coronal
 checkpoint and requires visual quality control.
+
+Multiplanar fusion
+------------------
+
+`fuse_multiplanar.py` rigidly registers axial and bilateral sagittal MRI data
+to the coronal reference, resamples semantic labels with nearest-neighbor
+interpolation, performs strict majority voting, and creates new instance labels
+from the fused semantic map. It also writes the registration transforms and
+registered intermediate volumes for quality control.
+
+The fusion script requires SimpleITK:
+
+```powershell
+.\instancecyst\Scripts\python.exe -m pip install SimpleITK
+```
+
+```powershell
+.\instancecyst\Scripts\python.exe .\src\fuse_multiplanar.py `
+  --coronal-image ".\data_cor\10001 COR T2 HASTE.nii.gz" `
+  --coronal-kidney .\data_cor\pred_vol.nii `
+  --coronal-semantic .\data_cor\10001_CystSemanticSeg.nii.gz `
+  --axial-image ".\data_ax\8001 AX T2 HASTE.nii.gz" `
+  --axial-kidney .\data_ax\pred_vol.nii `
+  --axial-semantic .\data_ax\8001_CystSemanticSeg.nii.gz `
+  --sag-right-image ".\data_sag\11001 SAG T2 HASTE DERECHO.nii.gz" `
+  --sag-right-kidney .\data_sag\pred_vol_derecho.nii `
+  --sag-right-semantic .\data_sag\11001_DERECHO_CystSemanticSeg.nii.gz `
+  --sag-left-image ".\data_sag\12001 SAG T2 HASTE IZQUIERDO.nii.gz" `
+  --sag-left-kidney .\data_sag\pred_vol_izquierdo.nii `
+  --sag-left-semantic .\data_sag\12001_IZQUIERDO_CystSemanticSeg.nii.gz `
+  --output-dir .\data_fused
+```
+
+Registration and fusion output must be visually checked before quantitative
+or clinical use.
+
+To perform registration, voting, and watershed directly on an isotropic grid,
+add for example:
+
+```powershell
+--isotropic-spacing 1.0
+```
+
+This creates the common grid before transforming the directional predictions,
+instead of fusing on the original thick-slice coronal grid.
+
+3-D export
+-----------
+
+The final kidney mask and fused cyst instances can be exported as one colored
+GLB scene. The kidneys are separate fully opaque textured surfaces. Every cyst label is
+exported as its own named mesh with alternating colors, so touching cysts
+remain distinguishable and selectable. A CSV with per-cyst volume and centroid
+is written beside the GLB.
+
+The exporter follows a Slicer-like display reconstruction pipeline:
+
+1. discard cyst instances smaller than `50 mm3`;
+2. nearest-neighbor resample kidney and label maps to a `1.0 mm` isotropic
+   world grid;
+3. retain the largest connected component and fill holes for each cyst label;
+4. construct and smooth a signed-distance field independently for every cyst;
+5. select a volume-preserving isosurface threshold and extract it with
+   Marching Cubes;
+6. apply volume-preserving Taubin smoothing;
+7. decimate kidney display meshes, preserve full closed cyst surfaces, and
+   export the GLB.
+
+The defaults can be adjusted with `--isotropic-spacing`,
+`--minimum-cyst-volume-mm3`, `--kidney-smoothing-sigma-mm`,
+`--cyst-smoothing-sigma-mm`, and the mesh smoothing iteration options.
+
+```powershell
+.\instancecyst\Scripts\python.exe -m pip install trimesh fast-simplification
+
+.\instancecyst\Scripts\python.exe .\src\export_kidney_cysts_3d.py `
+  --kidney-mask .\data_cor\pred_vol.nii `
+  --cyst-instances .\data_fused\multiplanar_cyst_instances.nii.gz `
+  --output .\data_fused\kidneys_and_cysts.glb
+```
     
 
